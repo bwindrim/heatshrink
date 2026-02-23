@@ -17,12 +17,14 @@ typedef enum {
     HSDR_POLL_MORE,             /* more data remaining, call again w/ fresh output buffer */
     HSDR_POLL_ERROR_NULL=-1,    /* NULL arguments */
     HSDR_POLL_ERROR_UNKNOWN=-2,
+    HSDR_POLL_ERROR_CORRUPT=-3, /* malformed or invalid input stream */
 } HSD_poll_res;
 
 typedef enum {
     HSDR_FINISH_DONE,           /* output is done */
     HSDR_FINISH_MORE,           /* more output remains */
     HSDR_FINISH_ERROR_NULL=-1,  /* NULL arguments */
+    HSDR_FINISH_ERROR_CORRUPT=-2, /* malformed or invalid input stream */
 } HSD_finish_res;
 
 #if HEATSHRINK_DYNAMIC_ALLOC
@@ -50,6 +52,8 @@ typedef struct {
     uint8_t state;              /* current state machine node */
     uint8_t current_byte;       /* current byte of input */
     uint8_t bit_index;          /* current bit index */
+    uint8_t is_corrupt;         /* set after malformed input is detected */
+    uint32_t decoded_count;     /* total bytes emitted by decoder */
 
 #if HEATSHRINK_DYNAMIC_ALLOC
     /* Fields that are only used if dynamically allocated. */

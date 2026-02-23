@@ -331,12 +331,14 @@ static int decoder_sink_read(config *cfg, heatshrink_decoder *hsd,
 
         do {
             pres = heatshrink_decoder_poll(hsd, out_buf, out_sz, &poll_sz);
+            if (pres == HSDR_POLL_ERROR_CORRUPT) { die("corrupt compressed stream"); }
             if (pres < 0) { die("poll"); }
             if (handle_sink(out, poll_sz, out_buf) < 0) die("handle_sink");
         } while (pres == HSDR_POLL_MORE);
         
         if (data_sz == 0 && poll_sz == 0) {
             fres = heatshrink_decoder_finish(hsd);
+            if (fres == HSDR_FINISH_ERROR_CORRUPT) { die("corrupt compressed stream"); }
             if (fres < 0) { die("finish"); }
             if (fres == HSDR_FINISH_DONE) { return 1; }
         }
@@ -369,6 +371,7 @@ static int decode(config *cfg) {
         }
         if (read_sz == 0) {
             fres = heatshrink_decoder_finish(hsd);
+            if (fres == HSDR_FINISH_ERROR_CORRUPT) { die("corrupt compressed stream"); }
             if (fres < 0) { die("finish"); }
             if (fres == HSDR_FINISH_DONE) break;
         } else if (read_sz < 0) {

@@ -299,11 +299,19 @@ prop_should_not_get_stuck(void *input, void *window, void *lookahead) {
     
     size_t out_sz = 0;
     HSD_poll_res pres = heatshrink_decoder_poll(hsd, output, BUF_SIZE, &out_sz);
-    if (pres != HSDR_POLL_EMPTY) { return THEFT_TRIAL_FAIL; }
+    if ((pres != HSDR_POLL_EMPTY) && (pres != HSDR_POLL_ERROR_CORRUPT)) {
+        return THEFT_TRIAL_FAIL;
+    }
+    if (pres == HSDR_POLL_ERROR_CORRUPT) {
+        heatshrink_decoder_free(hsd);
+        return THEFT_TRIAL_PASS;
+    }
     
     HSD_finish_res fres = heatshrink_decoder_finish(hsd);
     heatshrink_decoder_free(hsd);
-    if (fres != HSDR_FINISH_DONE) { return THEFT_TRIAL_FAIL; }
+    if ((fres != HSDR_FINISH_DONE) && (fres != HSDR_FINISH_ERROR_CORRUPT)) {
+        return THEFT_TRIAL_FAIL;
+    }
 
     return THEFT_TRIAL_PASS;
 }
@@ -654,6 +662,9 @@ prop_decoder_should_always_make_progress(void *instance, void *window, void *loo
             HSD_finish_res fres = heatshrink_decoder_finish(hsd);
             if (fres == HSDR_FINISH_DONE) {
                 break;
+            } else if (fres == HSDR_FINISH_ERROR_CORRUPT) {
+                heatshrink_decoder_free(hsd);
+                return THEFT_TRIAL_PASS;
             } else if (fres != HSDR_FINISH_MORE) {
                 printf("FAIL %d\n", __LINE__);
                 return THEFT_TRIAL_FAIL;
@@ -663,6 +674,10 @@ prop_decoder_should_always_make_progress(void *instance, void *window, void *loo
         size_t output_size = 0;
         HSD_poll_res pres = heatshrink_decoder_poll(hsd,
             output, sizeof(output), &output_size);
+        if (pres == HSDR_POLL_ERROR_CORRUPT) {
+            heatshrink_decoder_free(hsd);
+            return THEFT_TRIAL_PASS;
+        }
         if (pres < 0) {
             fprintf(stderr, "poll error: %d\n", pres);
             return THEFT_TRIAL_ERROR;

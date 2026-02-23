@@ -369,6 +369,48 @@ TEST decoder_poll_should_reject_null_output_size_pointer(void) {
     PASS();
 }
 
+TEST decoder_poll_should_reject_backref_when_no_history_exists(void) {
+    uint8_t input[] = {0x00, 0x00};
+    uint8_t output[4];
+    heatshrink_decoder *hsd = heatshrink_decoder_alloc(256, 8, 4);
+    size_t count = 0;
+
+    HSD_sink_res sres = heatshrink_decoder_sink(hsd, input, sizeof(input), &count);
+    ASSERT_EQ(HSDR_SINK_OK, sres);
+
+    size_t out_sz = 0;
+    HSD_poll_res pres = heatshrink_decoder_poll(hsd, output, sizeof(output), &out_sz);
+    ASSERT_EQ(HSDR_POLL_ERROR_CORRUPT, pres);
+    ASSERT_EQ(0, out_sz);
+
+    HSD_finish_res fres = heatshrink_decoder_finish(hsd);
+    ASSERT_EQ(HSDR_FINISH_ERROR_CORRUPT, fres);
+
+    heatshrink_decoder_free(hsd);
+    PASS();
+}
+
+TEST decoder_finish_should_reject_truncated_literal(void) {
+    uint8_t input[] = {0x80};
+    uint8_t output[4];
+    heatshrink_decoder *hsd = heatshrink_decoder_alloc(256, 8, 4);
+    size_t count = 0;
+
+    HSD_sink_res sres = heatshrink_decoder_sink(hsd, input, sizeof(input), &count);
+    ASSERT_EQ(HSDR_SINK_OK, sres);
+
+    size_t out_sz = 0;
+    HSD_poll_res pres = heatshrink_decoder_poll(hsd, output, sizeof(output), &out_sz);
+    ASSERT_EQ(HSDR_POLL_EMPTY, pres);
+    ASSERT_EQ(0, out_sz);
+
+    HSD_finish_res fres = heatshrink_decoder_finish(hsd);
+    ASSERT_EQ(HSDR_FINISH_ERROR_CORRUPT, fres);
+
+    heatshrink_decoder_free(hsd);
+    PASS();
+}
+
 TEST decoder_poll_should_expand_short_literal(void) {
     uint8_t input[] = {0xb3, 0x5b, 0xed, 0xe0 }; //"foo"
     uint8_t output[4];
@@ -603,7 +645,7 @@ TEST decoder_should_not_get_stuck_with_finish_yielding_MORE_but_0_bytes_output_f
             ASSERT_EQ(HSDR_POLL_EMPTY, pres);
             
             HSD_finish_res fres = heatshrink_decoder_finish(hsd);
-            ASSERT_EQ(HSDR_FINISH_DONE, fres);
+            ASSERT((fres == HSDR_FINISH_DONE) || (fres == HSDR_FINISH_ERROR_CORRUPT));
             input[i] = 0xff;
         }
     }
@@ -630,6 +672,8 @@ SUITE(decoding) {
     RUN_TEST(decoder_poll_should_reject_null_hsd);
     RUN_TEST(decoder_poll_should_reject_null_output_buffer);
     RUN_TEST(decoder_poll_should_reject_null_output_size_pointer);
+    RUN_TEST(decoder_poll_should_reject_backref_when_no_history_exists);
+    RUN_TEST(decoder_finish_should_reject_truncated_literal);
     RUN_TEST(decoder_poll_should_expand_short_literal);
     RUN_TEST(decoder_poll_should_expand_short_literal_and_backref);
     RUN_TEST(decoder_poll_should_expand_short_self_overlapping_backref);
